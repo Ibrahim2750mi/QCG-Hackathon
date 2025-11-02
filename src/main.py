@@ -696,7 +696,7 @@ class ProceduralForestTerrain(arcade.Window):
                 if self.collision_cooldown == 0:
                     self.penalty -= COLLISION_PENALTY
                     self.collision_cooldown = COLLISION_COOLDOWN
-                    print(f"Collision! -{COLLISION_PENALTY} points. Score: {self.score}")
+    
 
         # Calculate movement delta for camera
         move_x = self.character.center_x - old_x
