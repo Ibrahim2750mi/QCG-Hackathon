@@ -27,6 +27,16 @@ RENDER_DISTANCE = 4
 # Master seed for reproducible terrain
 MASTER_SEED = 12345
 
+# Game settings
+COLLISION_PENALTY = 50  # Points deducted per collision
+COLLISION_COOLDOWN = 30  # Frames before another collision can be registered
+
+# Quantum wave mode settings
+MAX_QUANTUM_ENERGY = 100
+QUANTUM_DRAIN_RATE = 4  # Energy per frame while in wave mode
+QUANTUM_RECHARGE_RATE = 0.1  # Energy per frame while not in wave mode
+WAVE_MODE_ALPHA = 128  # Transparency level in wave mode (0-255)
+
 # Scene layer names
 LAYER_NAME_GROUND = "Ground"
 LAYER_NAME_OBJECTS = "Objects"
@@ -75,7 +85,7 @@ def quantum_terrain(tile_x, tile_y):
     elif combined < 0.68:
         return 'tree_thin_fall'
     elif combined < 0.70:
-        return 'tree_default_fall'
+        return 'tree_fat_fall'
     elif combined < 0.72:
         return 'tree_oak_fall'
     elif combined < 0.75:
@@ -158,6 +168,9 @@ class Character(arcade.Sprite):
         self.iso_x = 0
         self.iso_y = 0
 
+        # Wave mode state
+        self.in_wave_mode = False
+
     def update_animation(self, delta_time=1 / 60):
         """Update character animation - always running"""
         self.frame_counter += 1
@@ -168,6 +181,14 @@ class Character(arcade.Sprite):
             if self.run_textures:
                 self.current_frame = (self.current_frame + 1) % len(self.run_textures)
                 self.texture = self.run_textures[self.current_frame]
+
+    def set_wave_mode(self, enabled):
+        """Toggle wave mode visual effect"""
+        self.in_wave_mode = enabled
+        if enabled:
+            self.alpha = WAVE_MODE_ALPHA
+        else:
+            self.alpha = 255
 
 
 class ProceduralForestTerrain(arcade.Window):
@@ -202,7 +223,15 @@ class ProceduralForestTerrain(arcade.Window):
 
         # Game state
         self.game_over = False
-        self.distance_traveled = 0
+        self.score = 0
+        self.start_x = 0
+        self.start_y = 0
+        self.collision_cooldown = 0
+
+        # Quantum wave mode state
+        self.wave_mode_active = False
+        self.quantum_energy = MAX_QUANTUM_ENERGY
+        self.wave_particles = []  # Visual effect particles
 
     def load_textures(self):
         """Load all forest-themed textures"""
@@ -252,6 +281,10 @@ class ProceduralForestTerrain(arcade.Window):
         self.character.iso_y = 0
         self.character.direction = pi / 4  # Start moving diagonally up-right
 
+        # Store starting position for displacement calculation
+        self.start_x = self.character.center_x
+        self.start_y = self.character.center_y
+
         # Add character to scene
         self.scene.add_sprite(LAYER_NAME_CHARACTERS, self.character)
 
@@ -266,7 +299,11 @@ class ProceduralForestTerrain(arcade.Window):
 
         # Reset game state
         self.game_over = False
-        self.distance_traveled = 0
+        self.score = 0
+        self.collision_cooldown = 0
+        self.wave_mode_active = False
+        self.quantum_energy = MAX_QUANTUM_ENERGY
+        self.wave_particles = []
 
     def iso_to_screen(self, iso_x, iso_y):
         """Convert isometric grid coordinates to screen coordinates"""
@@ -418,6 +455,7 @@ class ProceduralForestTerrain(arcade.Window):
                     detail_sprite.texture = self.textures[element]
                     detail_sprite.center_x = screen_x
                     detail_sprite.center_y = screen_y
+                    detail_sprite.scale = 0.5
                     detail_sprite.iso_x = tile_x
                     detail_sprite.iso_y = tile_y
 
@@ -475,6 +513,11 @@ class ProceduralForestTerrain(arcade.Window):
             self.turn_direction = -1
         elif key == arcade.key.RIGHT or key == arcade.key.D:
             self.turn_direction = 1
+        elif key == arcade.key.W:
+            # Activate wave mode if we have energy
+            if self.quantum_energy > 0:
+                self.wave_mode_active = True
+                self.character.set_wave_mode(True)
         elif key == arcade.key.Q:
             # Toggle terrain generation mode
             if self.terrain_mode == 'quantum':
@@ -492,11 +535,60 @@ class ProceduralForestTerrain(arcade.Window):
         elif key == arcade.key.RIGHT or key == arcade.key.D:
             if self.turn_direction == 1:
                 self.turn_direction = 0
+        elif key == arcade.key.W:
+            # Deactivate wave mode
+            self.wave_mode_active = False
+            self.character.set_wave_mode(False)
+
+    def update_wave_particles(self):
+        """Update quantum wave visual effect particles"""
+        # Add new particles when in wave mode
+        if self.wave_mode_active and random.random() < 0.3:
+            angle = random.uniform(0, 2 * pi)
+            distance = random.uniform(10, 30)
+            self.wave_particles.append({
+                'x': self.character.center_x + cos(angle) * distance,
+                'y': self.character.center_y + sin(angle) * distance,
+                'life': 30,
+                'size': random.uniform(3, 8),
+                'color': random.choice([
+                    arcade.color.CYAN,
+                    arcade.color.LIGHT_BLUE,
+                    arcade.color.ELECTRIC_BLUE,
+                    arcade.color.SKY_BLUE
+                ])
+            })
+
+        # Update and remove old particles
+        self.wave_particles = [
+            p for p in self.wave_particles
+            if p['life'] > 0
+        ]
+        for particle in self.wave_particles:
+            particle['life'] -= 1
 
     def on_update(self, delta_time):
         """Update camera position and character"""
         if self.game_over:
             return
+
+        # Decrement collision cooldown
+        if self.collision_cooldown > 0:
+            self.collision_cooldown -= 1
+
+        # Update quantum energy based on wave mode
+        if self.wave_mode_active:
+            self.quantum_energy -= QUANTUM_DRAIN_RATE
+            if self.quantum_energy <= 0:
+                self.quantum_energy = 0
+                self.wave_mode_active = False
+                self.character.set_wave_mode(False)
+        else:
+            self.quantum_energy = min(MAX_QUANTUM_ENERGY,
+                                      self.quantum_energy + QUANTUM_RECHARGE_RATE)
+
+        # Update wave particles
+        self.update_wave_particles()
 
         # Update character direction based on turn input
         if self.turn_direction != 0:
@@ -510,28 +602,43 @@ class ProceduralForestTerrain(arcade.Window):
         old_x = self.character.center_x
         old_y = self.character.center_y
 
-        # Update physics for player
-        self.physics_engine.update()
+        # Update physics for player (only if NOT in wave mode)
+        if not self.wave_mode_active:
+            self.physics_engine.update()
+        else:
+            # In wave mode, move freely without collision
+            self.character.center_x += self.character.change_x
+            self.character.center_y += self.character.change_y
 
-        # Check if character hit something (didn't move as expected)
-        expected_x = old_x + self.character.change_x
-        expected_y = old_y + self.character.change_y
-        actual_move_x = self.character.center_x - old_x
-        actual_move_y = self.character.center_y - old_y
+        # Check if character hit something (didn't move as expected) - only when not in wave mode
+        if not self.wave_mode_active:
+            expected_x = old_x + self.character.change_x
+            expected_y = old_y + self.character.change_y
+            actual_move_x = self.character.center_x - old_x
+            actual_move_y = self.character.center_y - old_y
 
-        # If movement was blocked significantly, game over
-        if abs(actual_move_x) < abs(self.character.change_x) * 0.5 or \
-                abs(actual_move_y) < abs(self.character.change_y) * 0.5:
-            self.game_over = True
-            print(f"Game Over! Distance traveled: {int(self.distance_traveled)}")
-            return
+            # If movement was blocked significantly, register collision
+            if abs(actual_move_x) < abs(self.character.change_x) * 0.5 or \
+                    abs(actual_move_y) < abs(self.character.change_y) * 0.5:
+
+                # Only deduct points if cooldown has expired
+                if self.collision_cooldown == 0:
+                    self.score -= COLLISION_PENALTY
+                    self.collision_cooldown = COLLISION_COOLDOWN
+                    print(f"Collision! -{COLLISION_PENALTY} points. Score: {self.score}")
 
         # Calculate movement delta for camera
         move_x = self.character.center_x - old_x
         move_y = self.character.center_y - old_y
 
-        # Update distance traveled
-        self.distance_traveled += math.sqrt(move_x ** 2 + move_y ** 2)
+        # Calculate displacement from start (straight-line distance)
+        displacement = math.sqrt(
+            (self.character.center_x - self.start_x) ** 2 +
+            (self.character.center_y - self.start_y) ** 2
+        )
+
+        # Update score based on displacement
+        self.score = int(displacement)
 
         # Update camera to follow character
         current_pos = self.camera.position
@@ -565,25 +672,104 @@ class ProceduralForestTerrain(arcade.Window):
         sprite_list.extend(dynamic_objects)
         sprite_list.draw()
 
-        # Draw UI (distance and instructions)
+        # Draw wave particles
+        for particle in self.wave_particles:
+            alpha = int((particle['life'] / 30) * 200)
+            color = (*particle['color'][:3], alpha)
+            arcade.draw_circle_filled(
+                particle['x'],
+                particle['y'],
+                particle['size'],
+                color
+            )
+
+        # Draw UI (score and instructions)
         arcade.camera.Camera2D().use()  # Switch to screen coordinates
 
-        # Display distance
+        # Calculate current displacement
+        displacement = math.sqrt(
+            (self.character.center_x - self.start_x) ** 2 +
+            (self.character.center_y - self.start_y) ** 2
+        )
+
+        # Display score and displacement
         arcade.draw_text(
-            f"Distance: {int(self.distance_traveled)}",
+            f"Score: {self.score}",
             10, SCREEN_HEIGHT - 30,
             arcade.color.WHITE, 20,
             bold=True
         )
 
+        arcade.draw_text(
+            f"Displacement: {int(displacement)}",
+            10, SCREEN_HEIGHT - 60,
+            arcade.color.LIGHT_GRAY, 16
+        )
+
+        # Draw quantum energy bar
+        bar_width = 200
+        bar_height = 20
+        bar_x = 10
+        bar_y = SCREEN_HEIGHT - 100
+
+        # Background
+        arcade.draw_lbwh_rectangle_filled(
+            bar_x + bar_width / 2, bar_y + bar_height / 2,
+            bar_width, bar_height,
+            arcade.color.DARK_GRAY
+        )
+
+        # Energy level
+        energy_width = (self.quantum_energy / MAX_QUANTUM_ENERGY) * bar_width
+        energy_color = arcade.color.CYAN if self.quantum_energy > 20 else arcade.color.RED
+        arcade.draw_lbwh_rectangle_filled(
+            bar_x + bar_width / 2, bar_y + bar_height / 2,
+            energy_width, bar_height,
+            energy_color
+        )
+
+        # Border
+        arcade.draw_lbwh_rectangle_outline(
+            bar_x + bar_width / 2, bar_y + bar_height / 2,
+            bar_width, bar_height,
+            arcade.color.WHITE, 2
+        )
+
+        # Label
+        arcade.draw_text(
+            f"Quantum Energy: {int(self.quantum_energy)}%",
+            bar_x, bar_y - 20,
+            arcade.color.CYAN if not self.wave_mode_active else arcade.color.YELLOW,
+            14,
+            bold=True
+        )
+
+        # Display collision warning if in cooldown
+        if self.collision_cooldown > 0:
+            arcade.draw_text(
+                f"COLLISION! -{COLLISION_PENALTY}",
+                SCREEN_WIDTH / 2, SCREEN_HEIGHT - 40,
+                arcade.color.RED, 24,
+                anchor_x="center", bold=True
+            )
+
+        # Display wave mode indicator
+        if self.wave_mode_active:
+            arcade.draw_text(
+                "⚛ WAVE MODE ACTIVE ⚛",
+                SCREEN_WIDTH / 2, SCREEN_HEIGHT - 80,
+                arcade.color.CYAN, 20,
+                anchor_x="center", bold=True
+            )
+
         # Display controls
         arcade.draw_text(
-            "LEFT/A: Turn Left  |  RIGHT/D: Turn Right  |  Q: Toggle Terrain Mode",
+            "LEFT/A: Turn Left  |  RIGHT/D: Turn Right  |  HOLD W: Wave Mode  |  Q: Toggle Terrain",
             10, 10,
             arcade.color.WHITE, 14
         )
 
-        # Game over message
+        # Game over message (if implemented)
         if self.game_over:
             arcade.draw_text(
                 "GAME OVER!",
@@ -592,7 +778,7 @@ class ProceduralForestTerrain(arcade.Window):
                 anchor_x="center", bold=True
             )
             arcade.draw_text(
-                f"Final Distance: {int(self.distance_traveled)}",
+                f"Final Score: {self.score}",
                 SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 - 30,
                 arcade.color.WHITE, 30,
                 anchor_x="center", bold=True
