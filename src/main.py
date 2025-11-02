@@ -130,7 +130,7 @@ class Game(arcade.Window):
                 ground.texture = self.textures['land']
                 ground.center_x = screen_x
                 ground.center_y = screen_y
-                ground.scale = 1.0
+                ground.scale = 0.2
                 self.scene.add_sprite("Ground", ground)
                 sprites.append(ground)
 
@@ -141,7 +141,7 @@ class Game(arcade.Window):
                     obj.texture = self.textures[feature]
                     obj.center_x = screen_x
                     obj.center_y = screen_y
-                    obj.scale = 1.0
+                    obj.scale = 0.1
                     self.scene.add_sprite("Objects", obj)
                     sprites.append(obj)
 
