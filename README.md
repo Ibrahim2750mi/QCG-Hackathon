@@ -130,31 +130,6 @@ Press **Q** to toggle between:
 ```
 Python 3.8+
 arcade >= 2.6.0
-```
-
-### **Assets Required**
-```
-assets/
-├── terrain/
-│   ├── land_NE.png
-│   ├── tree_blocks_fall_NE.png
-│   ├── tree_default_fall_NE.png
-│   ├── tree_fat_fall_NE.png
-│   ├── tree_thin_fall_NE.png
-│   ├── tree_oak_fall_NE.png
-│   ├── stone_tallG_NE.png
-│   ├── stone_largeC_NE.png
-│   ├── plant_bushSmall_NE.png
-│   ├── log_NE.png
-│   ├── log_large_NE.png
-│   └── skull-fotor-bg-remover-2025110325712.png
-└── characters/
-    ├── character2_idle/ (8 frames: character_1-5.png through character_8-5.png)
-    ├── character2_run/ (8 frames: character_1-4.png through character_8-4.png)
-    ├── character2_left/ (8 frames: character_1-9.png through character_8-9.png)
-    └── character2_right/ (8 frames: character_1-8.png through character_8-8.png)
-```
-
 ---
 
 ## 🚀 Getting Started
