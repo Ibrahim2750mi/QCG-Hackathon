@@ -107,7 +107,7 @@ class ProceduralForestTerrain(arcade.Window):
         self.coin_music = arcade.load_sound("assets/music/coin_collect.mp3")
         self.running_music = arcade.load_sound("assets/music/running.mp3")
 
-        self.bg_player = arcade.play_sound(self.bg_ambient_music, volume=0.2, loop=True)
+        self.bg_player = arcade.play_sound(self.bg_ambient_music, volume=0.4, loop=True)
         self.running_player = arcade.play_sound(self.running_music, volume=1, loop=True)
 
         # Add sprite lists for different layers

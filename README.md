@@ -124,40 +124,6 @@ Press **Q** to toggle between:
 
 ---
 
-## 📋 Requirements
-
-### **Dependencies**
-```
-Python 3.8+
-arcade >= 2.6.0
----
-
-## 🚀 Getting Started
-
-### **Installation**
-
-1. **Clone the Repository**
-   ```bash
-   git clone https://github.com/yourusername/QCG-Hackathon.git
-   cd QCG-Hackathon
-   ```
-
-2. **Install Dependencies**
-   ```bash
-   pip install arcade
-   ```
-
-3. **Verify Assets**
-   - Ensure all texture assets are in the `assets/` directory
-   - Check that character animation frames are properly organized
-
-4. **Run the Game**
-   ```bash
-   python src/main.py
-   ```
-
----
-
 ## 🎮 Controls
 
 | Key | Action |
