@@ -189,13 +189,15 @@ def terrain_type_from_density(d):
         return None
     elif d < 0.45:
         return 'tree_thin'
-    elif d < 0.55:
-        return 'tree_tall_fall'
+    elif d < 0.60:
+        return 'tree_oak_fall'
     elif d < 0.65:
         return 'tree_fat_fall'
-    elif d < 0.75:
+    elif d < 0.70:
         return 'stone_large'
-    elif d < 0.85:
+    elif d < 0.75:
+        return 'stone_tall'
+    elif d < 0.80:
         return 'log'
     else:
         return 'bush_small'
@@ -453,7 +455,6 @@ class ProceduralForestTerrain(arcade.Window):
 
         # Load textures
         self.textures = {}
-        self.load_textures()
 
         # Store active chunks {(chunk_x, chunk_y): chunk_data}
         self.chunks = {}
@@ -500,6 +501,13 @@ class ProceduralForestTerrain(arcade.Window):
 
         self.wave_mode_active = False
 
+        self.bg_ambient_music = None
+        self.coin_music = None
+        self.running_music = None
+        self.bg_player = None
+        self.running_player = None
+        self.coin_player = None
+
     def load_textures(self):
         """Load all forest-themed textures"""
         try:
@@ -536,6 +544,14 @@ class ProceduralForestTerrain(arcade.Window):
         """Set up initial scene, chunks and character"""
         # Create the Scene with organized layers
         self.scene = arcade.Scene()
+
+        self.load_textures()
+        self.bg_ambient_music = arcade.load_sound("assets/music/bg.mp3")
+        self.coin_music = arcade.load_sound("assets/music/coin_collect.mp3")
+        self.running_music = arcade.load_sound("assets/music/running.mp3")
+
+        self.bg_player = arcade.play_sound(self.bg_ambient_music, volume=0.2, loop=True)
+        self.running_player = arcade.play_sound(self.running_music, volume=1, loop=True)
 
         # Add sprite lists for different layers
         self.scene.add_sprite_list(LAYER_NAME_GROUND, use_spatial_hash=True)
@@ -923,6 +939,7 @@ class ProceduralForestTerrain(arcade.Window):
             self.scene[LAYER_NAME_COINS]
         )
         for coin in coin_hits:
+            self.coin_player = arcade.play_sound(self.coin_music, volume=0.1)
             coin.remove_from_sprite_lists()
             self.score += COIN_VALUE
 
