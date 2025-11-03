@@ -19,7 +19,7 @@ CAMERA_SPEED = 10
 
 # Character settings
 CHARACTER_SPEED = 8  # Constant forward speed
-TURN_SPEED = 0.1  # How fast the character rotates
+TURN_SPEED = 0.15  # How fast the character rotates
 CHARACTER_SCALE = 1.0
 
 # Chunk settings
@@ -31,7 +31,7 @@ MASTER_SEED = 12345
 
 # Game settings
 COLLISION_PENALTY = 50  # Points deducted per collision
-COLLISION_COOLDOWN = 6  # Frames before another collision can be registered
+COLLISION_COOLDOWN =  15  # Frames before another collision can be registered
 
 # Quantum wave mode settings
 MAX_QUANTUM_ENERGY = 100
@@ -47,64 +47,158 @@ LAYER_NAME_COINS = "Coins"
 LAYER_NAME_CHARACTERS = "Characters"
 
 # Coin settings
-COIN_VALUE = 10  # Points per coin collected
+COIN_VALUE = 100  # Points per coin collected
 COIN_SPAWN_CHANCE = 0.15  # Probability of coin spawning per tile
 
 MAX_HEALTH = 100
-HEALTH_PENALTY = 20  # how much health lost per collision
+HEALTH_PENALTY = 2  # how much health lost per collision
 
 
 
 class QuantumState:
-    """Minimal quantum simulator for terrain"""
+    """
+    Minimal quantum-inspired state for procedural terrain.
+    Simulates a 1-qubit system where the phase encodes variation.
+    """
 
-    def __init__(self, x, y):
+    def __init__(self, x: float, y: float):
+        # Initialize phase based on world coordinates
+        # Using both linear and trigonometric mixing for pseudo-randomness
         self.phase = (x * 0.1234 + y * 0.4321 + sin(x * 0.1) * cos(y * 0.1)) % (2 * pi)
 
     def hadamard(self):
-        """Create superposition"""
-        self.phase = (self.phase + pi / 4) % (2 * pi)
+        """
+        Simulates a Hadamard gate — creates superposition by mixing base state.
+        This adds variability to the phase space.
+        """
+        self.phase = (self.phase + pi / 4 + sin(self.phase)) % (2 * pi)
 
-    def rotate(self, angle):
-        """Rotate phase"""
+    def rotate(self, angle: float):
+        """
+        Rotate phase (Z-axis rotation) — equivalent to an RZ gate.
+        Only affects the *phase*, not amplitude.
+        """
         self.phase = (self.phase + angle) % (2 * pi)
 
-    def measure(self):
-        """Get probability (0 to 1)"""
-        return (cos(self.phase) + 1) / 2
+    def ry(self, theta: float):
+        """
+        Rotate around Y-axis — modifies both phase and implied probability amplitude.
+        Produces stronger variations than rotate().
+        """
+        # Instead of pure sine, modulate with current phase for smoother but chaotic transitions
+        delta = sin(theta) * cos(self.phase)
+        self.phase = (self.phase + delta * pi) % (2 * pi)
 
+    def phase_shift(self, phi: float):
+        """
+        Apply a fixed phase offset — useful for biasing certain regions.
+        """
+        self.phase = (self.phase + phi) % (2 * pi)
+
+    def measure(self) -> float:
+        """
+        Return a pseudo 'probability' (0–1) derived from the phase.
+        This determines how 'dense' or 'active' a terrain tile is.
+        """
+        # Cosine gives smooth oscillation; squaring would sharpen contrast
+        return (cos(self.phase) + 1) / 2
 
 def quantum_terrain(tile_x, tile_y):
     """Generate terrain using quantum states"""
     q = QuantumState(tile_x, tile_y)
+
+    # Step 1: Create superposition
     q.hadamard()
-    angle = (tile_x * 0.314 + tile_y * 0.271 + sin(tile_x * 0.05) * 3.14) % (2 * pi)
-    q.rotate(angle)
-    q.hadamard()
-    q.rotate((tile_x * tile_y * 0.001) % (2 * pi))
+
+    # Step 2: Introduce coordinate-dependent rotation (organic bias)
+    theta = (sin(tile_x * 0.15) + cos(tile_y * 0.13)) * pi / 2
+    q.ry(theta)
+
+    # Step 3: Local interference
+    phi = ((tile_x * 0.23 + tile_y * 0.37) % (2 * pi)) * 0.5
+    q.phase_shift(phi)
+
+    # Step 4: Another layer of Y-rotation for pattern complexity
+    q.ry((tile_x * tile_y * 0.002) % (pi / 2))
+
+    # Step 5: Measurement
     density = q.measure()
 
+    # Optional: smooth second state for variation
     q2 = QuantumState(tile_y, tile_x)
     q2.hadamard()
-    q2.rotate(tile_x * 0.1)
+    q2.ry(sin(tile_y * 0.21) * pi / 3)
     variation = q2.measure()
 
-    combined = (density + variation * 0.5) / 1.5
+    combined = (density + 0.6 * variation) / 1.6
 
-    if combined < 0.65:
+    if combined < 0.75:
         return None
-    elif combined < 0.68:
+    elif combined < 0.78:
         return 'tree_thin_fall'
-    elif combined < 0.70:
+    elif combined < 0.80:
         return 'tree_fat_fall'
-    elif combined < 0.72:
+    elif combined < 0.82:
         return 'tree_oak_fall'
-    elif combined < 0.75:
+    elif combined < 0.85:
         return 'stone_large'
-    elif combined < 0.77:
+    elif combined < 0.87:
         return 'log'
     else:
         return 'stone_tall' if (tile_x + tile_y) % 3 == 0 else 'bush_small'
+
+
+def quantum_terrain_phase(tile_x, tile_y):
+    """Generate terrain using standard quantum phase logic."""
+    q = QuantumState(tile_x, tile_y)
+    q.hadamard()
+    q.rotate(tile_x * 0.1)
+    q.hadamard()
+    density = q.measure()
+    return terrain_type_from_density(density)
+
+def quantum_terrain_ry(tile_x, tile_y):
+    """Generate terrain using an RY quantum gate instead of rotation."""
+    q = QuantumState(tile_x, tile_y)
+    q.hadamard()
+    q.ry(tile_x * 0.3 + tile_y * 0.2)
+    q.hadamard()
+    q.ry(tile_y * 0.15)
+    density = q.measure()
+    return terrain_type_from_density(density)
+
+
+
+def hybrid_terrain(tile_x, tile_y, wave_mode):
+    """Mix terrain types between phase-based and RY-based depending on state."""
+    # During normal mode, use phase terrain mostly
+    if not wave_mode:
+        if (tile_x + tile_y) % 7 < 5:
+            return quantum_terrain_phase(tile_x, tile_y)
+        else:
+            return quantum_terrain_ry(tile_x, tile_y)
+    else:
+        # In wave mode, lean heavier into RY terrain for more chaotic generation
+        if (tile_x * tile_y) % 5 < 3:
+            return quantum_terrain_ry(tile_x, tile_y)
+        else:
+            return quantum_terrain_phase(tile_x, tile_y)
+
+def terrain_type_from_density(d):
+    if d < 0.35:
+        return None
+    elif d < 0.45:
+        return 'tree_thin'
+    elif d < 0.55:
+        return 'tree_tall_fall'
+    elif d < 0.65:
+        return 'tree_fat_fall'
+    elif d < 0.75:
+        return 'stone_large'
+    elif d < 0.85:
+        return 'log'
+    else:
+        return 'bush_small'
 
 
 class Character(arcade.Sprite):
@@ -401,15 +495,16 @@ class ProceduralForestTerrain(arcade.Window):
         self.restart_text = None
 
         self.health_label = None
-
         self.health = MAX_HEALTH
         self.last_damage_time = 0
+
+        self.wave_mode_active = False
 
     def load_textures(self):
         """Load all forest-themed textures"""
         try:
             # Ground tiles
-            self.textures['grass'] = arcade.load_texture("assets/terrain/land_NE.png")
+            self.textures['grass'] = arcade.load_texture("assets/terrain/ground_grass_NE.png")
 
             # Trees (various types for variety)
             self.textures['tree_blocks_fall'] = arcade.load_texture("assets/terrain/tree_blocks_fall_NE.png")
@@ -587,7 +682,8 @@ class ProceduralForestTerrain(arcade.Window):
         chunk_sprites = {
             'ground': [],
             'objects': [],
-            'walls': []
+            'walls': [],
+            'coins': []
         }
 
         for x in range(CHUNK_SIZE):
@@ -607,7 +703,7 @@ class ProceduralForestTerrain(arcade.Window):
                 chunk_sprites['ground'].append(grass_sprite)
 
                 # Generate terrain element
-                element = self.generate_terrain_element(tile_x, tile_y, rng)
+                element = hybrid_terrain(tile_x, tile_y, self.wave_mode_active)
                 if element and element in self.textures:
                     detail_sprite = arcade.Sprite()
                     detail_sprite.texture = self.textures[element]
@@ -631,6 +727,15 @@ class ProceduralForestTerrain(arcade.Window):
                         # Non-collision objects go to objects layer
                         self.scene.add_sprite(LAYER_NAME_OBJECTS, detail_sprite)
                         chunk_sprites['objects'].append(detail_sprite)
+
+                if element is None and rng.random() < COIN_SPAWN_CHANCE:
+                    coin_sprite = arcade.Sprite()
+                    coin_sprite.texture = self.textures['coin']
+                    coin_sprite.center_x = screen_x
+                    coin_sprite.center_y = screen_y + 10  # Slight elevation
+                    coin_sprite.scale = 0.1
+                    self.scene.add_sprite(LAYER_NAME_COINS, coin_sprite)
+                    chunk_sprites['coins'].append(coin_sprite)
 
         return chunk_sprites
 
@@ -752,8 +857,7 @@ class ProceduralForestTerrain(arcade.Window):
                 self.wave_mode_active = False
                 self.character.set_wave_mode(False)
         else:
-            self.quantum_energy = min(MAX_QUANTUM_ENERGY,
-                                      int(self.quantum_energy + QUANTUM_RECHARGE_RATE))
+            self.quantum_energy = self.quantum_energy+ QUANTUM_RECHARGE_RATE if self.quantum_energy + QUANTUM_RECHARGE_RATE <= MAX_QUANTUM_ENERGY else MAX_QUANTUM_ENERGY
 
         # Update wave particles
         self.update_wave_particles()
@@ -813,6 +917,14 @@ class ProceduralForestTerrain(arcade.Window):
 
         # Update animations
         self.character.update_animation(delta_time, self.turn_direction)
+
+        coin_hits = arcade.check_for_collision_with_list(
+            self.character,
+            self.scene[LAYER_NAME_COINS]
+        )
+        for coin in coin_hits:
+            coin.remove_from_sprite_lists()
+            self.score += COIN_VALUE
 
     def on_draw(self):
         """Render the screen with proper layering"""
